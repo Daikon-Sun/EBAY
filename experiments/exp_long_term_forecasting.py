@@ -32,7 +32,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         #     lr=1e-4,
         #     weight_decay=self.args.weight_decay
         # )
-        with torch.set_grad_enabled(self.args.mode == 'adapt'):
+        with torch.set_grad_enabled(self.args.mode != 'freezed'):
             n_pts = 0
             for i, (batch_x, batch_y) in enumerate(vali_loader):
                 n_pts += len(batch_x)
@@ -54,8 +54,11 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                 total_mae_loss.extend(mae_loss)
 
                 self.model.train()
-                if self.args.mode == 'adapt' and self.args.adapt_iters > 0:
-                    upd_dataset, upd_dataloader = self._get_data(flag='train', add_pts=n_pts)
+                if self.args.mode != 'freezed' and self.args.adapt_iters > 0:
+                    if self.args.mode == 'retrain':
+                        upd_dataset, upd_dataloader = self._get_data(flag='train', add_pts=n_pts)
+                    else:
+                        assert False
                     for j in range(self.args.adapt_iters):
                         for k, (batch_x, batch_y) in enumerate(upd_dataloader):
                             self.opt.zero_grad()
@@ -127,15 +130,16 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                 self.opt.param_groups[0]['lr'] = self.args.min_lr
 
             train_loss = np.average(train_loss)
-            if self.args.mode != 'adapt':
+            if self.args.mode == 'freezed':
                 test_mse_loss, test_mae_loss = self.vali(test_loader, train_loader)
                 print("Epoch: {0} | Train Loss {1:.7f} | Test MSE {2:.7f} MAE {3:.7f}".format(epoch, train_loss, test_mse_loss, test_mae_loss))
             else:
                 print("Epoch: {0} | Train Loss {1:.7f}".format(epoch, train_loss))
 
-        if self.args.mode == 'adapt':
+        if self.args.mode != 'freezed':
             test_mse_loss, test_mae_loss = self.vali(test_loader, train_loader)
             print("Epoch: {0} | Test MSE {1:.7f} MAE {2:.7f}".format(epoch, test_mse_loss, test_mae_loss))
+
 
         torch.save(self.model.state_dict(), path + '/' + 'checkpoint.pth')
         best_model_path = path + '/' + 'checkpoint.pth'

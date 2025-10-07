@@ -15,7 +15,7 @@ for ep in 10 20 40 80 ; do
     for lr in 1e-4 3e-4 1e-3 3e-3 ; do
         for adapt_iters in 0 1 2 4 8 16 ; do
             echo $br $er
-            python -u run.py \
+            python3 -u run.py \
               --root_path ./dataset/"$datapath"/ \
               --data_path "$dataset".csv \
               --model_id "$dataset"_"$sl"_"$pl"_"$rid" \

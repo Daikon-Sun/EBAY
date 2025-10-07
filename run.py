@@ -47,12 +47,12 @@ if __name__ == '__main__':
     parser.add_argument('--min_lr', type=float, default=5e-5)
     parser.add_argument('--loss_fn', type=str, help='options: [MSE, MAE]')
 
-    parser.add_argument('--beg_ratio', type=float)
-    parser.add_argument('--end_ratio', type=float)
-    parser.add_argument('--mode', type=str)
-    parser.add_argument('--adapt_iters', type=int)
-    parser.add_argument('--test_batch_size', type=int)
-    parser.add_argument('--adapt_lr', type=float)
+    parser.add_argument('--beg_ratio', type=float, required=True)
+    parser.add_argument('--end_ratio', type=float, required=True)
+    parser.add_argument('--mode', type=str, choices=['freezed', 'retrain', 'online', 'ebay'], required=True)
+    parser.add_argument('--adapt_iters', type=int, required=True)
+    parser.add_argument('--test_batch_size', type=int, required=True)
+    parser.add_argument('--adapt_lr', type=float, required=True)
 
 
     args = parser.parse_args()

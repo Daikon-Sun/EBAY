@@ -1,20 +1,21 @@
 model_name=SFNN
-datapath=electricity
-dataset=electricity
+datapath=traffic
+dataset=traffic
 
-sl=168
+sl=1344
 rid=$1
-mode=retrain
+mode=freezed
 
+rid=$1
 br=0
 er=0.25
-bs=1024
 
-ep=25
-lr=3e-3
-adapt_iters=3
+ep=100
+lr=1e-3
+adapt_iters=0
 
 for pl in 1 12 24 48 ; do
+    echo $br $er
     python3 -u run.py \
       --root_path ./dataset/"$datapath"/ \
       --data_path "$dataset".csv \
@@ -23,17 +24,18 @@ for pl in 1 12 24 48 ; do
       --data $dataset \
       --mode $mode \
       --adapt_iters $adapt_iters \
-      --test_batch_size 168 \
       --adapt_lr $lr \
+      --test_batch_size 168 \
       --seq_len $sl \
       --pred_len $pl \
       --n_layers 3 \
       --batch_size 32 \
       --train_epochs $ep \
-      --weight_decay 0.00001 \
-      --dropout 0.5 \
-      --loss_fn MAE \
-      --learning_rate 0.0005 \
+      --weight_decay 0.00005 \
+      --dropout 0.1 \
+      --loss_fn MSE \
+      --learning_rate 0.0004 \
+      --min_lr 1e-5 \
       --beg_ratio $br \
       --end_ratio $er
 done

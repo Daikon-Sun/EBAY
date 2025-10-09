@@ -53,6 +53,7 @@ if __name__ == '__main__':
     parser.add_argument('--adapt_iters', type=int, required=True)
     parser.add_argument('--test_batch_size', type=int, required=True)
     parser.add_argument('--adapt_lr', type=float, required=True)
+    parser.add_argument('--para_weight', type=float, required=True)
 
 
     args = parser.parse_args()

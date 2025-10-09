@@ -39,10 +39,20 @@ class Dataset_ETT_hour(Dataset):
         df_raw = pd.read_csv(os.path.join(self.root_path,
                                           self.data_path))
 
-        border1s = [0, 12 * 30 * 24 - self.seq_len, 12 * 30 * 24 + 4 * 30 * 24 - self.seq_len]
-        border2s = [12 * 30 * 24, 12 * 30 * 24 + 4 * 30 * 24, 12 * 30 * 24 + 8 * 30 * 24]
+        # border1s = [0, 12 * 30 * 24 - self.seq_len, 12 * 30 * 24 + 4 * 30 * 24 - self.seq_len]
+        # border2s = [12 * 30 * 24, 12 * 30 * 24 + 4 * 30 * 24, 12 * 30 * 24 + 8 * 30 * 24]
+        # border1 = border1s[self.set_type]
+        # border2 = border2s[self.set_type]
+
+        # num_train = int(len(df_raw) * 0.6)
+        beg_p = int(len(df_raw) * self.beg_ratio)
+        end_p = int(len(df_raw) * self.end_ratio) + self.add_pts
+        num_train = int(len(df_raw) * self.end_ratio)
+        border1s = [beg_p, end_p - self.seq_len]
+        border2s = [end_p, len(df_raw)]
         border1 = border1s[self.set_type]
         border2 = border2s[self.set_type]
+
 
         if self.features == 'M' or self.features == 'MS':
             cols_data = df_raw.columns[1:]
@@ -195,8 +205,9 @@ class Dataset_Custom(Dataset):
         # num_train = int(len(df_raw) * 0.6)
         beg_p = int(len(df_raw) * self.beg_ratio)
         end_p = int(len(df_raw) * self.end_ratio) + self.add_pts
-        num_train = int(len(df_raw) * self.end_ratio)
-        border1s = [beg_p, num_train - self.seq_len]
+        # num_train = int(len(df_raw) * self.end_ratio)
+        num_train = int(len(df_raw) * 0.2)
+        border1s = [beg_p, end_p - self.seq_len]
         border2s = [end_p, len(df_raw)]
         border1 = border1s[self.set_type]
         border2 = border2s[self.set_type]
@@ -340,8 +351,9 @@ class Dataset_Solar(Dataset):
         # num_train = int(len(df_raw) * 0.6)
         beg_p = int(len(df_raw) * self.beg_ratio)
         end_p = int(len(df_raw) * self.end_ratio) + self.add_pts
-        num_train = int(len(df_raw) * self.end_ratio)
-        border1s = [beg_p, num_train - self.seq_len]
+        # num_train = int(len(df_raw) * self.end_ratio)
+        num_train = int(len(df_raw) * 0.2)
+        border1s = [beg_p, end_p - self.seq_len]
         border2s = [end_p, len(df_raw)]
         border1 = border1s[self.set_type]
         border2 = border2s[self.set_type]

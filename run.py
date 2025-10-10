@@ -49,11 +49,12 @@ if __name__ == '__main__':
 
     parser.add_argument('--beg_ratio', type=float, required=True)
     parser.add_argument('--end_ratio', type=float, required=True)
-    parser.add_argument('--mode', type=str, choices=['freezed', 'retrain', 'online', 'ebay'], required=True)
+    parser.add_argument('--mode', type=str, choices=['freezed', 'retrain', 'ebay'], required=True)
     parser.add_argument('--adapt_iters', type=int, required=True)
     parser.add_argument('--test_batch_size', type=int, required=True)
     parser.add_argument('--adapt_lr', type=float, required=True)
     parser.add_argument('--para_weight', type=float, required=True)
+    parser.add_argument('--para_weight2', type=float, required=True)
 
 
     args = parser.parse_args()
@@ -87,5 +88,5 @@ if __name__ == '__main__':
     exp = Exp(args)
     print('>>>>>>>start training : {}>>>>>>>>>>>>>>>>>>>>>>>>>>'.format(setting))
     exp.train(setting)
-    print('>>>>>>>testing : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
-    exp.test(setting)
+    # print('>>>>>>>testing : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
+    # exp.test(setting)

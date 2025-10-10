@@ -33,6 +33,14 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         #     weight_decay=self.args.weight_decay
         # )
         ini_paras = [p.detach().clone() for p in self.model.parameters()]
+        std_paras = []
+        for i in range(len(self.prev_paras[0])):
+            std_para = [self.prev_paras[j][i] for j in range(len(self.prev_paras))]
+            std_para = torch.stack(std_para, dim=0)
+            std_para = std_para.std(dim=0)
+            std_paras.append(std_para)
+        if self.args.mode == 'ebay':
+            all_dataset, all_dataloader = self._get_data(flag='train', add_pts=len(vali_loader.dataset))
         with torch.set_grad_enabled(self.args.mode != 'freezed'):
             n_pts = 0
             for i, (batch_x, batch_y) in enumerate(vali_loader):
@@ -52,9 +60,12 @@ class Exp_Long_Term_Forecast(Exp_Basic):
 
                 mse_loss = (pred - true)**2
                 mae_loss = np.abs(pred - true)
+                cur_loss = mse_loss.mean()
                 # print('mse_loss', mse_loss.mean())
                 total_mse_loss.extend(mse_loss)
                 total_mae_loss.extend(mae_loss)
+                if self.args.mode != 'freezed':
+                    print(i, np.mean(total_mse_loss))
 
                 self.model.train()
                 if self.args.mode != 'freezed' and self.args.adapt_iters > 0:
@@ -75,9 +86,8 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                                 loss.backward()
                                 self.opt.step()
                     elif self.args.mode == 'ebay':
-                        upd_dataset, upd_dataloader = self._get_data(flag='train', add_pts=n_pts)
                         old_paras = [p.detach().clone() for p in self.model.parameters()]
-                        opt = optim.Adam(self.model.parameters(), lr=self.args.adapt_lr) # , weight_decay=self.args.weight_decay)
+                        opt = optim.Adam(self.model.parameters(), lr=self.args.adapt_lr, weight_decay=self.args.weight_decay)
                         sch = optim.lr_scheduler.StepLR(self.opt, 1, 0.8)
 
                         cnt = 0
@@ -87,30 +97,31 @@ class Exp_Long_Term_Forecast(Exp_Basic):
 
                             opt.zero_grad()
 
-                            idx = list(range(len(upd_dataset)-bs, len(upd_dataset)))
-                            batch_x = torch.from_numpy(np.stack([upd_dataset[i][0] for i in idx])).float().to(self.device)
-                            batch_y = torch.from_numpy(np.stack([upd_dataset[i][1] for i in idx])).float().to(self.device)
+                            idx = list(range(len(train_loader.dataset)+n_pts-bs, len(train_loader.dataset)+n_pts))
+                            batch_x = torch.from_numpy(np.stack([all_dataset[i][0] for i in idx])).float().to(self.device)
+                            batch_y = torch.from_numpy(np.stack([all_dataset[i][1] for i in idx])).float().to(self.device)
 
                             outputs = self.model(batch_x)
                             outputs = outputs[:, -self.args.pred_len:]
                             batch_y = batch_y[:, -self.args.pred_len:].to(self.device)
 
-                            # para_loss1 = sum(torch.sum((p - op)**2) for p, op in zip(self.model.parameters(), old_paras))
-                            para_loss1 = sum(torch.sum(torch.abs(p - op)) for p, op in zip(self.model.parameters(), old_paras))
-                            # para_loss2 = sum(torch.sum((p - ip)**2) for p, ip in zip(self.model.parameters(), ini_paras))
+                            para_loss1 = sum(torch.sum((p - op)**2) for p, op in zip(self.model.parameters(), old_paras))
+                            # para_loss1 = sum(torch.sum((p - op)**2/sd**2) for p, op, sd in zip(self.model.parameters(), old_paras, std_paras))
+                            # para_loss1 = sum(torch.sum(torch.abs(p - op)) for p, op in zip(self.model.parameters(), old_paras))
+                            para_loss2 = sum(torch.sum((p - ip)**2) for p, ip in zip(self.model.parameters(), ini_paras))
                             loss = self.criterion(outputs, batch_y)
                             if loss.item() < min_loss:
                                 min_loss = loss.item()
                             else:
                                 cnt += 1
-                            loss += (self.args.para_weight * para_loss1) # + 1 * para_loss2)
+                            loss += (self.args.para_weight * para_loss1 + self.args.para_weight * para_loss2)
                             # print('loss', loss.item(), 'para_loss1', para_loss1.item()) # , 'para_loss2', para_loss2.item())
 
                             loss.backward()
                             opt.step()
                             sch.step()
 
-                            if cnt >= 5:
+                            if cnt >= 10:
                                 break
 
                             # print(list(self.model.parameters())[0])
@@ -144,6 +155,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         else:
             sch = optim.lr_scheduler.StepLR(self.opt, 1, 0.99)
 
+        self.prev_paras = []
         for epoch in range(1, self.args.train_epochs+1):
             train_loss = []
 
@@ -163,6 +175,8 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                 loss.backward()
                 self.opt.step()
 
+            if epoch > 4:
+                self.prev_paras.append([p.detach().clone() for p in self.model.parameters()])
             sch.step()
             if self.args.data_path == 'ILI.csv':
                 if epoch % 12 == 0:

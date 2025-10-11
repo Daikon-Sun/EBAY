@@ -10,9 +10,9 @@ br=0
 er=0.25
 bs=128
 
-ep=20
-lr=2e-6
-adapt_iters=50
+ep=15
+lr=2e-4
+adapt_iters=20
 
 for pl in 1 12 24 48 ; do
     python3 -u run.py \
@@ -27,18 +27,17 @@ for pl in 1 12 24 48 ; do
       --adapt_lr $lr \
       --seq_len $sl \
       --pred_len $pl \
-      --n_layers 3 \
-      --mixer \
+      --n_layers 2 \
       --need_norm \
       --batch_size $bs \
       --train_epochs $ep \
       --weight_decay 0 \
-      --dropout 0.5 \
+      --dropout 0 \
       --loss_fn MAE \
       --learning_rate 5e-4 \
       --min_lr 5e-5 \
-      --para_weight 0.3 \
-      --para_weight2 0.003 \
+      --para_weight 10 \
+      --para_weight2 0 \
       --beg_ratio $br \
       --end_ratio $er
 done

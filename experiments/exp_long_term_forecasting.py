@@ -33,12 +33,12 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         #     weight_decay=self.args.weight_decay
         # )
         ini_paras = [p.detach().clone() for p in self.model.parameters()]
-        std_paras = []
-        for i in range(len(self.prev_paras[0])):
-            std_para = [self.prev_paras[j][i] for j in range(len(self.prev_paras))]
-            std_para = torch.stack(std_para, dim=0)
-            std_para = std_para.std(dim=0)
-            std_paras.append(std_para)
+        # std_paras = []
+        # for i in range(len(self.prev_paras[0])):
+        #     std_para = [self.prev_paras[j][i] for j in range(len(self.prev_paras))]
+        #     std_para = torch.stack(std_para, dim=0)
+        #     std_para = std_para.std(dim=0)
+        #     std_paras.append(std_para)
         if self.args.mode == 'ebay':
             all_dataset, all_dataloader = self._get_data(flag='train', add_pts=len(vali_loader.dataset))
         with torch.set_grad_enabled(self.args.mode != 'freezed'):
@@ -87,7 +87,14 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                                 self.opt.step()
                     elif self.args.mode == 'ebay':
                         old_paras = [p.detach().clone() for p in self.model.parameters()]
-                        opt = optim.Adam(self.model.parameters(), lr=self.args.adapt_lr, weight_decay=self.args.weight_decay)
+
+                        if self.args.data != 'electricity':
+                            for p in self.model.parameters():
+                                if p.shape != (self.args.pred_len, self.args.seq_len):
+                                    p.requires_grad = False
+                            opt = optim.Adam(filter(lambda p: p.requires_grad, self.model.parameters()), lr=self.args.adapt_lr, weight_decay=self.args.weight_decay)
+                        else:
+                            opt = optim.Adam(self.model.parameters(), lr=self.args.adapt_lr, weight_decay=self.args.weight_decay)
                         sch = optim.lr_scheduler.StepLR(self.opt, 1, 0.8)
 
                         cnt = 0
@@ -105,16 +112,25 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                             outputs = outputs[:, -self.args.pred_len:]
                             batch_y = batch_y[:, -self.args.pred_len:].to(self.device)
 
-                            para_loss1 = sum(torch.sum((p - op)**2) for p, op in zip(self.model.parameters(), old_paras))
-                            # para_loss1 = sum(torch.sum((p - op)**2/sd**2) for p, op, sd in zip(self.model.parameters(), old_paras, std_paras))
-                            # para_loss1 = sum(torch.sum(torch.abs(p - op)) for p, op in zip(self.model.parameters(), old_paras))
-                            para_loss2 = sum(torch.sum((p - ip)**2) for p, ip in zip(self.model.parameters(), ini_paras))
                             loss = self.criterion(outputs, batch_y)
+
+                            # para_loss1 = sum(torch.sum((p - op)**2/sd**2) for p, op, sd in zip(self.model.parameters(), old_paras, std_paras))
+                            # para_loss1 += 10 * sum(torch.sum(torch.abs(p - op)) for p, op in zip(self.model.parameters(), old_paras))
+                            # para_loss2 = sum(torch.sum((p - ip)**2) for p, ip in zip(self.model.parameters(), ini_paras))
+                            # loss += (self.args.para_weight * para_loss1 + self.args.para_weight2 * para_loss2)
+                            if self.args.data != 'electricity':
+                                para_loss1 = 0
+                                for p, op, ip in zip(self.model.parameters(), old_paras, ini_paras):
+                                    if p.shape == (self.args.pred_len, self.args.seq_len):
+                                        para_loss1 += (self.args.para_weight * torch.sum((p - op)**2) + self.args.para_weight2 * torch.sum((p - ip)**2))
+                            else:
+                                para_loss1 = sum(torch.sum((p - op)**2) for p, op in zip(self.model.parameters(), old_paras))
+                            loss += (self.args.para_weight * para_loss1)
+
                             if loss.item() < min_loss:
                                 min_loss = loss.item()
                             else:
                                 cnt += 1
-                            loss += (self.args.para_weight * para_loss1 + self.args.para_weight * para_loss2)
                             # print('loss', loss.item(), 'para_loss1', para_loss1.item()) # , 'para_loss2', para_loss2.item())
 
                             loss.backward()
@@ -191,15 +207,20 @@ class Exp_Long_Term_Forecast(Exp_Basic):
             else:
                 print("Epoch: {0} | Train Loss {1:.7f}".format(epoch, train_loss))
 
+        if self.args.train_epochs > 0:
+            torch.save(self.model.state_dict(), path + '/' + 'checkpoint.pth')
+
+        model = self.model_dict[self.args.model].Model(self.args).float().to(self.device)
+        model.load_state_dict(torch.load(os.path.join('./checkpoints/' + setting, 'checkpoint.pth')))
+        self.model = model
+
         if self.args.mode != 'freezed':
             test_mse_loss, test_mae_loss = self.vali(test_loader, train_loader)
             print("Epoch: {0} | Test MSE {1:.7f} MAE {2:.7f}".format(epoch, test_mse_loss, test_mae_loss))
 
-
-        torch.save(self.model.state_dict(), path + '/' + 'checkpoint.pth')
-        best_model_path = path + '/' + 'checkpoint.pth'
-        self.model.load_state_dict(torch.load(best_model_path))
-
+        # torch.save(self.model.state_dict(), path + '/' + 'checkpoint.pth')
+        # best_model_path = path + '/' + 'checkpoint.pth'
+        # self.model.load_state_dict(torch.load(best_model_path))
         return self.model
 
     def test(self, setting, test=0):
